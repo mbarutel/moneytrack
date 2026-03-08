@@ -1,5 +1,5 @@
 use crate::models::transaction::Transaction;
-use chrono::NaiveDateTime;
+use chrono::NaiveDate;
 use rusqlite::{Connection, Result, params};
 
 pub struct TransactionRepository<'a> {
@@ -33,11 +33,12 @@ impl<'a> TransactionRepository<'a> {
                   ORDER BY date DESC",
         )?;
 
+        // TODO: This should use Transaction::new()
         let transaction = stmt
             .query_map([], |row| {
                 Ok(Transaction {
                     id: Some(row.get(0)?),
-                    date: NaiveDateTime::parse_from_str(&row.get::<_, String>(1)?, "%Y-%m-%d")
+                    date: NaiveDate::parse_from_str(&row.get::<_, String>(1)?, "%Y-%m-%d")
                         .map_err(|e| {
                             rusqlite::Error::FromSqlConversionFailure(
                                 1,
@@ -53,5 +54,14 @@ impl<'a> TransactionRepository<'a> {
             .collect::<Result<Vec<_>>>()?;
 
         Ok(transaction)
+    }
+
+    pub fn bulk_insert(&self, transactions: Vec<Transaction>) -> Result<usize> {
+        let mut count = 0;
+        for transaction in transactions {
+            self.add(&transaction)?;
+            count += 1;
+        }
+        Ok(count)
     }
 }

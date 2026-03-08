@@ -1,5 +1,6 @@
 mod cli;
 mod db;
+mod import;
 mod models;
 
 use cli::config::{Command, Config};
@@ -27,7 +28,13 @@ fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     match config.cmd {
         Command::Summarize => println!("summarize the transactions"),
-        Command::Import => println!("import transactions"),
+        Command::Import => {
+            // TODO: File path management
+            let file_path = "transactions.csv";
+            let transactions = import::csv::import_from_csv(file_path)?;
+            let count = repo.bulk_insert(transactions)?;
+            println!("Imported {} transactions", count)
+        }
         Command::List => {
             let transactions = repo.list()?;
             for t in transactions {
