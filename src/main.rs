@@ -1,15 +1,43 @@
 mod cli;
+mod db;
+mod models;
 
-use cli::config;
-use std;
+use cli::config::{Command, Config};
+use std::{env, process};
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<String> = env::args().collect();
 
-    let config = config::Config::build(&args);
+    let config = Config::build(&args).unwrap_or_else(|err| {
+        eprintln!("Problem with building the config: {}", err);
+        process::exit(1);
+    });
+
+    if let Err(err) = run(config) {
+        eprintln!("Application error: {}", err);
+        process::exit(1);
+    }
+}
+
+fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize database
+
+    let db = db::init()?;
+    let repo = db::TransactionRepository::new(db.conn());
 
     match config.cmd {
-        config::Process::List => println!("list the transactions!"),
-        config::Process::Summarize => println!("summarize the transactions"),
+        Command::Summarize => println!("summarize the transactions"),
+        Command::Import => println!("import transactions"),
+        Command::List => {
+            let transactions = repo.list()?;
+            for t in transactions {
+                println!(
+                    "{} | {:.2} | {} | {}",
+                    t.date, t.amount, t.category, t.description
+                );
+            }
+        }
     }
+
+    Ok(())
 }
